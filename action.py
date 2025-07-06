@@ -25,6 +25,7 @@ class ActionDiscretizer:
         self.bin_edges = torch.stack((low, high), dim=1).to(device=device, dtype=dtype)
         self.bin_widths = (high - low) / self.num_bins
 
+    @torch.no_grad()
     def encode(self, action: torch.Tensor) -> torch.LongTensor:
         """
         Discretize continuous actions into integer tokens ∈ [0, num_bins - 1]
@@ -33,13 +34,14 @@ class ActionDiscretizer:
         if action.ndim == 1:
             action = action.unsqueeze(0)  # [1, action_dim]
 
-        low = self.bin_edges[:, 0]       # [action_dim]
-        width = self.bin_widths          # [action_dim]
+        low = torch.tensor(self.bin_edges[:, 0], dtype=action.dtype, device=action.device)       # [action_dim]
+        width = torch.tensor(self.bin_widths, dtype=action.dtype, device=action.device)          # [action_dim]
 
         # [B, action_dim] - [action_dim] -> broadcasting
         tokens = ((action - low) / width).clamp(0, self.num_bins - 1)
-        return tokens.floor().to(torch.long)
+        return tokens.floor().to(dtype=torch.long, device=action.device)
 
+    @torch.no_grad()
     def decode(self, tokens: torch.Tensor) -> torch.Tensor:
         """
         Convert tokens back into continuous action values.
@@ -47,7 +49,7 @@ class ActionDiscretizer:
         if tokens.ndim == 1:
             tokens = tokens.unsqueeze(0)  # [1, action_dim]
 
-        low = self.bin_edges[:, 0]
-        width = self.bin_widths
+        low = torch.tensor(self.bin_edges[:, 0], dtype=tokens.dtype, device=tokens.device)
+        width = torch.tensor(self.bin_widths, dtype=tokens.dtype, device=tokens.device)
 
-        return tokens.to(width.dtype) * width + low
+        return tokens * width + low

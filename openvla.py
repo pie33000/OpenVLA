@@ -31,18 +31,22 @@ class OpenVLA(nn.Module):
         self.action_token_offset = self.language_model.lm_head.out_features - 256
     
     def embed_text(self, text):
-        tokens = self.tokenizer.encode(text)
-        tokens = torch.tensor(tokens).unsqueeze(0).to(self.device)
+        if isinstance(text, str):
+            tokens = self.tokenizer.encode(text)
+            tokens = torch.tensor(tokens).unsqueeze(0).to(self.device)
+        else:
+            tokens = text
+            tokens = torch.tensor(tokens).to(self.device)
         return self.language_model_embeddings(tokens)
+    
     
     def get_actions(self, x):
         x = x.clone()
         x[:, :, :-self.action_discretizer.num_bins] = -100 # mask out the token ids for the actions
         token_ids = torch.argmax(x, dim=-1)
         last_tokens = token_ids[:, -self.action_discretizer.action_dim:]
-        bins = last_tokens - self.action_token_offset
-        decoded = self.action_discretizer.decode(bins)
-        return decoded
+        action_bins = last_tokens - self.action_token_offset
+        return action_bins
 
 
     def forward(self, image, text):
@@ -56,11 +60,11 @@ class OpenVLA(nn.Module):
 
 
 
-image = torch.randn(1, 3, 224, 224).to("cuda")
-task = "pick up the red ball"
-text = f"What should the robot do to {task}? A:"
-openvla = OpenVLA()
-openvla.action_discretizer.fit(torch.rand(100000, 7).to("cuda"))
-out = openvla(image, text)
-actions = openvla.get_actions(out.logits)
-print(actions)
+# image = torch.randn(1, 3, 224, 224).to("cuda")
+# task = "pick up the red ball"
+# text = f"What should the robot do to {task}? A:"
+# openvla = OpenVLA(device="cuda")
+# openvla.action_discretizer.fit(torch.rand(100000, 7).to("cuda"))
+# out = openvla(image, text)
+# actions = openvla.get_actions(out.logits)
+# print(actions)
