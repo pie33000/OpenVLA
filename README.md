@@ -6,7 +6,7 @@ A PyTorch implementation of the OpenVLA: An [Open-Source Vision-Language-Action 
 
 OpenVLA is a multimodal transformer that:
 
-- **Sees**: Processes RGB images using a vision encoder (DINOv2)
+- **Sees**: Processes RGB images using a vision encoder (DINOv2 + Siglip)
 - **Understands**: Interprets natural language instructions using Qwen2-0.5B
 - **Acts**: Predicts discretized robotic actions (7-DOF: position, rotation, gripper)
 
