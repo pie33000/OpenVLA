@@ -104,8 +104,6 @@ dataset = OpenVLADataset(
     max_len=64,
 )
 
-# for i in range(10):
-#     print(dataset[i])
 openvla = OpenVLA(device="cuda")
 openvla.action_discretizer = dataset.discretizer
 dataloader = DataLoader(dataset, batch_size=16, num_workers=0)
@@ -139,3 +137,12 @@ for epoch in range(10):
             print(f"Step {step} loss: {loss.item()}")
 
     print(f"Epoch {epoch} loss: {loss.item()}")
+    torch.save(
+        {
+            "epoch": epoch,
+            "model_state_dict": openvla.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "loss": loss.item(),
+        },
+        f"openvla_model_epoch_{epoch}.pth",
+    )
