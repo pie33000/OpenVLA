@@ -2,7 +2,7 @@
 
 A PyTorch implementation of the OpenVLA: An [Open-Source Vision-Language-Action Model](https://arxiv.org/pdf/2406.09246) paper model that combines visual perception, natural language understanding, and robotic action prediction for embodied AI tasks.
 
-## 🚀 Overview
+## Overview
 
 OpenVLA is a multimodal transformer that:
 
@@ -10,7 +10,7 @@ OpenVLA is a multimodal transformer that:
 - **Understands**: Interprets natural language instructions using Qwen2-0.5B
 - **Acts**: Predicts discretized robotic actions (7-DOF: position, rotation, gripper)
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 ┌─────────────┐    ┌──────────────┐    ┌─────────────────┐
@@ -39,7 +39,7 @@ OpenVLA is a multimodal transformer that:
       └──────────────┘    └─────────────────┘
 ```
 
-## 📦 Installation
+## Installation
 
 ### Prerequisites
 
@@ -62,7 +62,7 @@ conda activate openvla
 pip install -r requirements.txt
 ```
 
-## 📊 Dataset Preparation
+## Dataset Preparation
 
 ### Supported Datasets
 
@@ -104,7 +104,7 @@ Each HDF5 file contains:
 - `instrs`: Natural language instructions
 - `actions`: 7-DOF action vectors [x, y, z, rx, ry, rz, gripper]
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Training
 
@@ -120,7 +120,7 @@ Training features:
 - **Cross-entropy Loss**: Standard language modeling objective
 - **Memory Optimization**: File handle caching and lazy loading
 
-## 🧠 Key Components
+## Key Components
 
 ### 1. Vision Encoder (`vision_encoder.py`)
 
@@ -162,7 +162,7 @@ class OpenVLA(nn.Module):
         self.action_discretizer = ActionDiscretizer(...)
 ```
 
-## 🔧 Advanced Features
+## Advanced Features
 
 ### Custom Action Spaces
 
@@ -194,11 +194,11 @@ discretizer = ActionDiscretizer(
 4. Add tests if applicable
 5. Submit a pull request
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - [see the LICENSE file for details](LICENSE).
 
-## 🔗 References
+## References
 
 - [DINOv2: Learning Robust Visual Features without Supervision](https://arxiv.org/abs/2304.07193)
 - [Qwen2 Technical Report](https://arxiv.org/abs/2407.10671)
