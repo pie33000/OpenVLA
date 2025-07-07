@@ -1,55 +1,75 @@
-import torch
+from typing import List, Union
+
+import numpy as np
+from transformers import AutoTokenizer, PreTrainedTokenizerBase
 
 
 class ActionDiscretizer:
-    def __init__(self, action_dim: int = 7, num_bins: int = 256):
+    def __init__(
+        self,
+        tokenizer: PreTrainedTokenizerBase,
+        action_dim: int = 7,
+        num_bins: int = 256,
+        min_action: float = -1.0,
+        max_action: float = 1.0,
+    ):
+        self.tokenizer = tokenizer
         self.action_dim = action_dim
         self.num_bins = num_bins
-        self.bin_edges = None     # shape: [action_dim, 2]
-        self.bin_widths = None    # shape: [action_dim]
+        self.min_action = min_action
+        self.max_action = max_action
+        self.bins = np.linspace(min_action, max_action, self.num_bins)
+        self.bin_centers = (self.bins[:-1] + self.bins[1:]) / 2
 
-    @torch.no_grad()
-    def fit(self, action_data: torch.Tensor):
-        """
-        Compute 1st to 99th percentile range for each action dimension.
-        """
-        assert action_data.ndim == 2 and action_data.shape[1] == self.action_dim, \
-            f"Expected shape (N, {self.action_dim}), got {action_data.shape}"
+        # Action tokens will be the last num_bins tokens in vocab
+        self.action_token_begin_idx = self.tokenizer.vocab_size - self.num_bins
 
-        device = action_data.device
-        dtype = action_data.dtype
+    def __call__(self, action: np.ndarray) -> List[int]:
+        """Convert continuous actions to token IDs"""
+        action = np.clip(action, self.min_action, self.max_action)
+        discretized_action = np.digitize(action, self.bins)
 
-        low = torch.quantile(action_data, 0.01, dim=0)
-        high = torch.quantile(action_data, 0.99, dim=0)
+        # Clamp to valid range [1, num_bins] then map to token IDs
+        discretized_action = np.clip(discretized_action, 1, self.num_bins)
+        token_ids = self.action_token_begin_idx + discretized_action - 1
 
-        self.bin_edges = torch.stack((low, high), dim=1).to(device=device, dtype=dtype)
-        self.bin_widths = (high - low) / self.num_bins
+        return token_ids.tolist()
 
-    @torch.no_grad()
-    def encode(self, action: torch.Tensor) -> torch.LongTensor:
-        """
-        Discretize continuous actions into integer tokens ∈ [0, num_bins - 1]
-        Supports shape (action_dim,) or (B, action_dim)
-        """
-        if action.ndim == 1:
-            action = action.unsqueeze(0)  # [1, action_dim]
+    def decode_token_ids_to_actions(self, action_token_ids: Union[List, np.ndarray]) -> np.ndarray:
+        """Convert token IDs back to continuous actions"""
+        if isinstance(action_token_ids, list):
+            action_token_ids = np.array(action_token_ids)
 
-        low = torch.tensor(self.bin_edges[:, 0], dtype=action.dtype, device=action.device)       # [action_dim]
-        width = torch.tensor(self.bin_widths, dtype=action.dtype, device=action.device)          # [action_dim]
+        # Convert token IDs back to discretized actions
+        discretized_actions = action_token_ids - self.action_token_begin_idx
+        discretized_actions = np.clip(discretized_actions, 0, self.num_bins - 1)
 
-        # [B, action_dim] - [action_dim] -> broadcasting
-        tokens = ((action - low) / width).clamp(0, self.num_bins - 1)
-        return tokens.floor().to(dtype=torch.long, device=action.device)
+        return self.bin_centers[discretized_actions]
 
-    @torch.no_grad()
-    def decode(self, tokens: torch.Tensor) -> torch.Tensor:
-        """
-        Convert tokens back into continuous action values.
-        """
-        if tokens.ndim == 1:
-            tokens = tokens.unsqueeze(0)  # [1, action_dim]
+    @property
+    def vocab_size(self) -> int:
+        return self.num_bins
 
-        low = torch.tensor(self.bin_edges[:, 0], dtype=tokens.dtype, device=tokens.device)
-        width = torch.tensor(self.bin_widths, dtype=tokens.dtype, device=tokens.device)
 
-        return tokens * width + low
+# Test the implementation
+if __name__ == "__main__":
+    action_discretizer = ActionDiscretizer(
+        tokenizer=AutoTokenizer.from_pretrained("Qwen/Qwen2-0.5B"),
+        action_dim=7,
+        num_bins=256,
+        min_action=-1.0,
+        max_action=1.0,
+    )
+
+    test_action = np.array([-1.0, 1.0, 0.5, 0.0, 0.0, 0.0, 0.0])
+    print(f"Original action: {test_action}")
+
+    # Encode
+    token_ids = action_discretizer(test_action)
+    print(f"Token IDs: {token_ids}")
+    print(f"Token ID range: {min(token_ids)} - {max(token_ids)}")
+
+    # Decode
+    decoded_action = action_discretizer.decode_token_ids_to_actions(token_ids)
+    print(f"Decoded action: {decoded_action}")
+    print(f"Round-trip error: {np.abs(test_action - decoded_action).max()}")

@@ -1,35 +1,37 @@
+import warnings
+from copy import deepcopy
+
 import torch
 import torch.nn as nn
-from vision_encoder import VisionEncoder
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from copy import deepcopy
+
 from action import ActionDiscretizer
-import warnings
+from vision_encoder import VisionEncoder
+
 warnings.filterwarnings("ignore")
 
 
 class OpenVLA(nn.Module):
-    def __init__(self, dim: int = 896, device: str = "cuda", action_dim: int = 7, num_bins: int = 256):
+    def __init__(
+        self, dim: int = 896, device: str = "cuda", action_dim: int = 7, num_bins: int = 256
+    ):
         super(OpenVLA, self).__init__()
         self.device = device
         self.dim = dim
         self.vision_encoder = VisionEncoder(dim=dim).to(device)
         self._qwen = AutoModelForCausalLM.from_pretrained(
-            "Qwen/Qwen2-0.5B",
-            torch_dtype="auto",
-            device_map=device
+            "Qwen/Qwen2-0.5B", torch_dtype="auto", device_map=device
         )
         self.language_model_embeddings = deepcopy(self._qwen.model.embed_tokens)
         # remove the embeddings layer
         self._qwen.model.embed_tokens = nn.Identity()
         self.language_model = deepcopy(self._qwen)
         self._qwen = None
-        
+
         self.tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2-0.5B")
         self.tokenizer.pad_token = self.tokenizer.eos_token
-        self.action_discretizer = ActionDiscretizer(action_dim=action_dim, num_bins=num_bins)
-        self.action_token_offset = self.language_model.lm_head.out_features - 256
-    
+        self.action_discretizer = None
+
     def embed_text(self, text):
         if isinstance(text, str):
             tokens = self.tokenizer.encode(text)
@@ -38,16 +40,26 @@ class OpenVLA(nn.Module):
             tokens = text
             tokens = torch.tensor(tokens).to(self.device)
         return self.language_model_embeddings(tokens)
-    
-    
+
     def get_actions(self, x):
         x = x.clone()
-        x[:, :, :-self.action_discretizer.num_bins] = -100 # mask out the token ids for the actions
-        token_ids = torch.argmax(x, dim=-1)
-        last_tokens = token_ids[:, -self.action_discretizer.action_dim:]
-        action_bins = last_tokens - self.action_token_offset
-        return action_bins
+        # Mask out everything except action tokens
+        action_token_begin_idx = self.action_discretizer.action_token_begin_idx
+        x[:, :, :action_token_begin_idx] = -100  # mask non-action tokens
 
+        token_ids = torch.argmax(x, dim=-1)
+        last_tokens = token_ids[:, -self.action_discretizer.action_dim :]
+
+        # Convert token IDs to continuous actions using the discretizer
+        action_tokens_np = last_tokens.cpu().numpy()
+        continuous_actions = []
+        for batch_idx in range(action_tokens_np.shape[0]):
+            batch_actions = self.action_discretizer.decode_token_ids_to_actions(
+                action_tokens_np[batch_idx]
+            )
+            continuous_actions.append(batch_actions)
+
+        return torch.tensor(continuous_actions, device=x.device)
 
     def forward(self, image, text):
         image_embeddings = self.vision_encoder(image)
@@ -57,7 +69,6 @@ class OpenVLA(nn.Module):
         x = self.language_model(x)
         # action decoding and encoding
         return x
-
 
 
 # image = torch.randn(1, 3, 224, 224).to("cuda")
