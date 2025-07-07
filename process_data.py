@@ -106,33 +106,36 @@ dataset = OpenVLADataset(
 
 # for i in range(10):
 #     print(dataset[i])
-openvla = OpenVLA(device="cpu")
+openvla = OpenVLA(device="cuda")
 openvla.action_discretizer = dataset.discretizer
 dataloader = DataLoader(dataset, batch_size=16, num_workers=0)
 optimizer = AdamW(openvla.parameters(), lr=1e-5)
 loss_fn = nn.CrossEntropyLoss()
 
-for sample in dataloader:
-    images = sample["image"].to("cpu")
-    language_tokens = sample["language_tokens"].to("cpu")
-    action_tokens = sample["action_tokens"].to("cpu")
 
-    out = openvla(images, language_tokens)
-    print(out.logits.shape)
+for epoch in range(10):
+    for step, sample in enumerate(dataloader):
+        images = sample["image"].to("cuda")
+        language_tokens = sample["language_tokens"].to("cuda")
+        action_tokens = sample["action_tokens"].to("cuda")
 
-    action_token_begin_idx = dataset.discretizer.action_token_begin_idx
-    logits_slice = out.logits[
-        :, -7:, action_token_begin_idx : action_token_begin_idx + 256
-    ]  # (B, 7, 256)
-    logits_flat = logits_slice.reshape(-1, 256).contiguous()  # (B*7, 256)
+        out = openvla(images, language_tokens)
 
-    targets_relative = action_tokens - action_token_begin_idx  # Convert to 0-255 range
-    targets_flat = targets_relative.reshape(-1)  # (B*7,)
+        action_token_begin_idx = dataset.discretizer.action_token_begin_idx
+        logits_slice = out.logits[
+            :, -7:, action_token_begin_idx : action_token_begin_idx + 256
+        ]  # (B, 7, 256)
+        logits_flat = logits_slice.reshape(-1, 256).contiguous()  # (B*7, 256)
 
-    loss = F.cross_entropy(logits_flat, targets_flat)
-    print(loss)
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
+        targets_relative = action_tokens - action_token_begin_idx  # Convert to 0-255 range
+        targets_flat = targets_relative.reshape(-1)  # (B*7,)
 
-    print(loss.item())
+        loss = F.cross_entropy(logits_flat, targets_flat)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        if step % 100 == 0:
+            print(f"Step {step} loss: {loss.item()}")
+
+    print(f"Epoch {epoch} loss: {loss.item()}")
