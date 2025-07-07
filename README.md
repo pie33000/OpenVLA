@@ -1,4 +1,4 @@
-# OpenVLA: Open Vision-Language-Action Model
+# OpenVLA: Open-Source Vision-Language-Action Model
 
 A PyTorch implementation of the OpenVLA: An [Open-Source Vision-Language-Action Model](https://arxiv.org/pdf/2406.09246) paper model that combines visual perception, natural language understanding, and robotic action prediction for embodied AI tasks.
 
