@@ -17,8 +17,8 @@ OpenVLA is a multimodal transformer that:
 │   Image     │    │ Instruction  │    │   Action        │
 │ (224x224x3) │    │   (Text)     │    │ (7D vector)     │
 └─────┬───────┘    └──────┬───────┘    └─────────────────┘
-      │                   │                      ▲
-      ▼                   ▼                      │
+      │                   │                     ▲
+      ▼                   ▼                     │
 ┌─────────────┐    ┌──────────────┐             │
 │   Vision    │    │  Language    │             │
 │  Encoder    │    │  Tokenizer   │             │
