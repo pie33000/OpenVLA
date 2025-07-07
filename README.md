@@ -201,6 +201,7 @@ This project is licensed under the MIT License - [see the LICENSE file for detai
 ## References
 
 - [DINOv2: Learning Robust Visual Features without Supervision](https://arxiv.org/abs/2304.07193)
+- [SigLIP 2: Multilingual Vision-Language Encoders with Improved Semantic Understanding, Localization, and Dense Features](https://arxiv.org/pdf/2502.14786)
 - [Qwen2 Technical Report](https://arxiv.org/abs/2407.10671)
 - [RT-1: Robotics Transformer](https://arxiv.org/abs/2212.06817)
 
